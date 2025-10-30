@@ -1,3 +1,7 @@
+This is a fix for this repo to make it not have a stroke on python 3.11.9 and or windows. Full disclosure, I have no idea what the problem was but it has been fixed via claude code. This may not have fixed it on every platform and on every python version but it works on my windows machine with python 3.11.9. Obviously this can only be instaleld via git clone and then `python setup.py install`.
+
+the original repo has not been updated in 2 years (or 5) and the creator has not been active on github since ~2021. I wont even bother making a pr because its unlikely to be merged.
+
 # WikiExtractor
 [WikiExtractor.py](http://medialab.di.unipi.it/wiki/Wikipedia_Extractor) is a Python script that extracts and cleans text from a [Wikipedia database backup dump](https://dumps.wikimedia.org/), e.g. https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles.xml.bz2 for English.
 
