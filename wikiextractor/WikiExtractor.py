@@ -178,9 +178,9 @@ class OutputSplitter():
 
     def open(self, filename):
         if self.compress:
-            return bz2.BZ2File(filename + '.bz2', 'w')
+            return bz2.BZ2File(filename + '.bz2', 'wt', encoding='utf-8')
         else:
-            return open(filename, 'w')
+            return open(filename, 'w', encoding='utf-8')
 
 
 # ----------------------------------------------------------------------
@@ -397,14 +397,6 @@ def process_dump(input_file, template_file, out_file, file_size, file_compress,
         template_load_elapsed = default_timer() - template_load_start
         logging.info("Loaded %d templates in %.1fs", templates, template_load_elapsed)
 
-    if out_file == '-':
-        output = sys.stdout
-        if file_compress:
-            logging.warn("writing to stdout, so no output compression (use an external tool)")
-    else:
-        nextFile = NextFile(out_file)
-        output = OutputSplitter(nextFile, file_size, file_compress)
-
     # process pages
     logging.info("Starting page extraction from %s.", input_file)
     extract_start = default_timer()
@@ -414,14 +406,18 @@ def process_dump(input_file, template_file, out_file, file_size, file_compress,
     # - a reduce process collects the results, sort them and print them.
 
     # fixes MacOS error: TypeError: cannot pickle '_io.TextIOWrapper' object
-    Process = get_context("fork").Process
+    # Use 'fork' on Unix-like systems, 'spawn' on Windows
+    import platform
+    context_method = "fork" if platform.system() != "Windows" else "spawn"
+    Process = get_context(context_method).Process
 
     maxsize = 10 * process_count
     # output queue
     output_queue = Queue(maxsize=maxsize)
 
     # Reduce job that sorts and prints output
-    reduce = Process(target=reduce_process, args=(output_queue, output))
+    # Pass output configuration instead of file object to avoid pickle issues on Windows
+    reduce = Process(target=reduce_process, args=(output_queue, out_file, file_size, file_compress))
     reduce.start()
 
     # initialize jobs queue
@@ -462,8 +458,7 @@ def process_dump(input_file, template_file, out_file, file_size, file_compress,
     # wait for it to finish
     reduce.join()
 
-    if output != sys.stdout:
-        output.close()
+    # Output is closed in the reduce process
     extract_duration = default_timer() - extract_start
     extract_rate = ordinal / extract_duration
     logging.info("Finished %d-process extraction of %d articles in %.1fs (%.1f art/s)",
@@ -492,12 +487,22 @@ def extract_process(jobs_queue, output_queue, html_safe):
             break
 
 
-def reduce_process(output_queue, output):
+def reduce_process(output_queue, out_file, file_size, file_compress):
     """
     Pull finished article text, write series of files (or stdout)
     :param output_queue: text to be output.
-    :param output: file object where to print.
+    :param out_file: directory where to store extracted data, or '-' for stdout
+    :param file_size: max size of each extracted file, or None for no max (one file)
+    :param file_compress: whether to compress files with bzip.
     """
+    # Create output object in the child process to avoid pickle issues
+    if out_file == '-':
+        output = sys.stdout
+        if file_compress:
+            logging.warn("writing to stdout, so no output compression (use an external tool)")
+    else:
+        nextFile = NextFile(out_file)
+        output = OutputSplitter(nextFile, file_size, file_compress)
 
     interval_start = default_timer()
     period = 100000
@@ -521,6 +526,10 @@ def reduce_process(output_queue, output):
                 break
             ordinal, text = pair
             ordering_buffer[ordinal] = text
+
+    # Close output if it's not stdout
+    if out_file != '-' and hasattr(output, 'close'):
+        output.close()
 
 
 # ----------------------------------------------------------------------

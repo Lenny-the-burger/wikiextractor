@@ -380,11 +380,11 @@ wgUrlProtocols = [
 # as well as U+3000 is IDEOGRAPHIC SPACE for bug 19052
 EXT_LINK_URL_CLASS = r'[^][<>"\x00-\x20\x7F\s]'
 ExtLinkBracketedRegex = re.compile(
-    '\[(((?i)' + '|'.join(wgUrlProtocols) + ')' + EXT_LINK_URL_CLASS + r'+)\s*([^\]\x00-\x08\x0a-\x1F]*?)\]',
-    re.S | re.U)
+    r'\[(((?:' + '|'.join(wgUrlProtocols) + r')' + EXT_LINK_URL_CLASS + r'+)\s*([^\]\x00-\x08\x0a-\x1F]*?))\]',
+    re.S | re.U | re.I)
 EXT_IMAGE_REGEX = re.compile(
-    r"""^(http://|https://)([^][<>"\x00-\x20\x7F\s]+)
-    /([A-Za-z0-9_.,~%\-+&;#*?!=()@\x80-\xFF]+)\.((?i)gif|png|jpg|jpeg)$""",
+    r"""^(?:https?://)([^][<>"\x00-\x20\x7F\s]+)/
+    ([A-Za-z0-9_.,~%\-+&;#*?!=()@\x80-\xFF]+)\.(?i:(?:gif|png|jpe?g))$""",
     re.X | re.S | re.U)
 
 
@@ -974,7 +974,7 @@ class Extractor():
         text = ''.join(self.page)
         text = self.clean_text(text, html_safe=html_safe)
 
-        if self.to_json:
+        if self.toJson:
             json_data = {
 		'id': self.id,
                 'revid': self.revid,
